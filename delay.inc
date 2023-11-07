@@ -5,9 +5,7 @@
 .define delay_3c bit z:$00
 
 .macro delay_4c
-    .local L0
-L0:
-    bit a:L0
+    cmp z:$00,x
 .endmacro
 
 .macro delay_5c
@@ -21,8 +19,8 @@ L0:
 .endmacro
 
 .macro delay_7c
-    pha
-    pla
+    delay_3c
+    delay_4c
 .endmacro
 
 .macro delay N
@@ -60,6 +58,11 @@ L0:
     Y_ITER .set ((ITERATIONS>>8)+1) & $FF
 
     .if R < STATIC_C
+        .repeat (R-2)/7
+            delay_7c
+            R .set R-7
+        .endrep
+
         .if R & 1
             .if R >= 7
                 delay_7c
@@ -77,6 +80,7 @@ L0:
             delay_6c
             R .set R-6
         .endrep
+        ;R .set R-((R/6)*6)
         
         .if R = 6
             delay_6c
