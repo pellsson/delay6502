@@ -1,6 +1,26 @@
 .ifndef __6502_DELAY_INC__
 .define __6502_DELAY_INC__
 
+;
+; There are two options.
+;
+; Inline Delay
+;
+; `delay_inline CYCLES` (between 2 and 325000 cycles)
+;   Will inline between 2 and 26 bytes (~18 bytes on avarage)
+;   that will consume CYCLES worth of cycles.
+;
+; Call Delay
+;
+; `delay_call CYCLES` (between 37 and 325000 cycles)
+;   Will generate (always exactly 7 bytes):
+;     ldx #..
+;     ldy #..
+;     jsr delay
+;
+; Must issue `delay_create_call` somewhere to declare the function.
+; 
+
 .define delay_2c nop
 .define delay_3c bit z:$00
 
@@ -23,7 +43,7 @@
     delay_4c
 .endmacro
 
-.macro delay N
+.macro delay_inline N
     .local L0
     .local L1
     .local R
@@ -122,3 +142,67 @@ L1:
 .endmacro
 
 .endif
+
+.define RT_STATIC_C 27
+
+.macro delay_call cycles
+    .if cycles < (RT_STATIC_C+10)
+        .error "Must delay at least 37 cycles. Use delay_inline for less resolution."
+    .endif
+    .if cycles > 325000
+        .error "Cant delay for more than 325000 cycles"
+    .endif
+
+    R .set cycles
+    R .set R-10
+    OFFSET_C .set (R-RT_STATIC_C) .MOD 5
+
+    .if OFFSET_C = 0
+        BRANCH_OFF .set 0
+    .elseif OFFSET_C = 1
+        BRANCH_OFF .set 1
+    .elseif OFFSET_C = 2
+        BRANCH_OFF .set 2
+    .elseif OFFSET_C = 3
+        BRANCH_OFF .set 5
+    .elseif OFFSET_C = 4
+        BRANCH_OFF .set 8
+    .else
+        .error "Impossible."
+    .endif
+
+    ITERATIONS .set ((R-RT_STATIC_C) / 5)
+    X_ITER .set (ITERATIONS+1) & $FF
+    Y_ITER .set ((ITERATIONS>>8)+1) & $FF
+
+    ldx #X_ITER
+    ldy #Y_ITER
+    jsr _delay_call_impl-BRANCH_OFF
+.endmacro
+
+.macro delay_create_call
+_delay_call_4c:
+    jmp _delay_call_1c
+_delay_call_3c:
+    jmp _delay_call_impl
+_delay_call_2c:
+    .byte $C9 ; (2 extra) cmp imm
+_delay_call_1c:
+    .byte $24 ; (1 extra) bit z:...
+_delay_call_impl:
+    nop
+    ; always c&1==0
+@L0:
+    dex       ; 2
+    bne @L0   ; 2/3
+    dex       ; 2 (-5)
+    dex       ; 2 (-10)
+    dex       ; 2 (-15) => (-15 vs. 6+5)
+    delay_5c  ; 4 -15 vs. 15
+    dey       ; 2
+    bne @L0   ; 2/3
+@DONE:
+    rts       ; 6
+.endmacro
+
+
