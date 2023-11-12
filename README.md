@@ -19,7 +19,7 @@ ldx #..
 ldy #..
 jsr _delay_call_impl
 ```
-To declare `_delay_call_impl` you must issue `delay_create_call`
+To declare `_delay_call_impl` you must issue `delay_create_call` (consumes 21 bytes).
 
 ## Examples
 

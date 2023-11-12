@@ -181,6 +181,10 @@ L1:
 .endmacro
 
 .macro delay_create_call
+    .local START
+    .local L0
+    .local DONE
+START: 
 _delay_call_4c:
     jmp _delay_call_1c
 _delay_call_3c:
@@ -192,17 +196,21 @@ _delay_call_1c:
 _delay_call_impl:
     nop
     ; always c&1==0
-@L0:
+L0:
     dex       ; 2
-    bne @L0   ; 2/3
+    bne L0    ; 2/3
     dex       ; 2 (-5)
     dex       ; 2 (-10)
     dex       ; 2 (-15) => (-15 vs. 6+5)
     delay_5c  ; 4 -15 vs. 15
     dey       ; 2
-    bne @L0   ; 2/3
-@DONE:
+    bne L0   ; 2/3
+DONE:
     rts       ; 6
+
+.if (START >> 8) <> (DONE >> 8)
+    .error "You must create the delay function closer to a page boundary."
+.endif
 .endmacro
 
 
